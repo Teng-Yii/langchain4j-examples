@@ -20,60 +20,59 @@ public class _9b_HumanInTheLoop_Chatbot_With_Memory {
     }
 
     /**
-     * This example demonstrates a back-and-forth loop with human-in-the-loop interaction,
-     * until an end-goal is reached (exit condition), after which the rest of the workflow
-     * can continue.
-     * The loop continues until the human confirms availability, which is verified by an AiService.
-     * When no slot is found, the loop ends after 5 iterations.
+     * 此示例演示了包含人机交互的往复循环，
+     * 直到达到终止目标（退出条件）后，其余工作流才可继续执行。
+     *该循环持续进行直至人工确认可用性，该状态由AiService进行验证。
+     *若未找到可用时段，循环将在5次迭代后终止。
      */
 
     private static final ChatModel CHAT_MODEL = ChatModelProvider.createChatModel();
 
     public static void main(String[] args) {
 
-        // 1. Define sub-agent
+        // 1. 定义子智能体
         MeetingProposer proposer = AgenticServices
                 .agentBuilder(MeetingProposer.class)
                 .chatModel(CHAT_MODEL)
-                .chatMemoryProvider(memoryId -> MessageWindowChatMemory.withMaxMessages(15)) // so the agent remembers what he proposed already
+                .chatMemoryProvider(memoryId -> MessageWindowChatMemory.withMaxMessages(15)) // 记住之前的记忆
                 .outputName("proposal")
                 .build();
 
-        // 2. Add an AiService to judge if a decision has been reached (this can be a tiny local model because the assignment is so simple)
+        // 2. 添加一个AiService来判断是否已做出决策（由于任务非常简单，可以使用一个微型本地模型）
         DecisionsReachedService decisionService = AiServices.create(DecisionsReachedService.class, CHAT_MODEL);
 
-        // 2. Define Human-in-the-loop agent
+        // 2. 定义人机交互智能体
         HumanInTheLoop humanInTheLoop = AgenticServices
                 .humanInTheLoopBuilder()
-                .description("agent that asks input from the user")
-                .outputName("candidateAnswer") // matches one of the proposer's input variable names
-                .inputName("proposal") // must match the output of the proposer agent
+                .description("向用户请求输入的agent")
+                .outputName("candidateAnswer") // 输出用户回答
+                .inputName("proposal") // 接收AI提议
                 .requestWriter(request -> {
                     System.out.println(request);
                     System.out.print("> ");
                 })
                 .responseReader(() -> new Scanner(System.in).nextLine())
-                .async(true) // no need to block the entire program while waiting for user input
+                .async(true) // 异步执行，不阻塞程序
                 .build();
 
-        // 3. construct the loop
-        // Here we only want the exit condition to be checked once per loop, not after every agent invocation,
-        // so we bundle both agents in a sequence and give it as one agent to the loop
+        // 3. 构建循环
+        // 希望退出条件在每次循环中检查一次，而非每次代理调用后检查，
+        // 因此我们使用序列模式将两个子agent打包并作为单个代理传递给循环。
         UntypedAgent agentSequence = AgenticServices
                 .sequenceBuilder()
-                .subAgents(proposer, humanInTheLoop)
+                .subAgents(proposer, humanInTheLoop)    // 按照顺序执行：提议+用户响应
                 .output(agenticScope -> Map.of(
                         "proposal", agenticScope.readState("proposal"),
                         "candidateAnswer", agenticScope.readState("candidateAnswer")
                 ))
                 .outputName("proposalAndAnswer")
-                // this output contains the last date proposal + candidate's answer, which should be sufficient info for a followup agent to schedule the meeting (or abort trying)
+                // 此输出包含最后一次日期提案及候选人的答复，这些信息应足以供后续客服人员安排会议（或终止尝试）。
                 .build();
 
         UntypedAgent schedulingLoop = AgenticServices
-                .loopBuilder()
+                .loopBuilder()  // 循环模式
                 .subAgents(agentSequence)
-                .exitCondition(scope -> {
+                .exitCondition(scope -> {   // 退出条件
                     System.out.println("--- checking exit condition ---");
                     String response = (String) scope.readState("candidateAnswer");
                     String proposal = (String) scope.readState("proposal");
@@ -83,10 +82,10 @@ public class _9b_HumanInTheLoop_Chatbot_With_Memory {
                 .maxIterations(5)
                 .build();
 
-        // 4. Run the scheduling loop
-        Map<String, Object> input = Map.of("meetingTopic", "on-site visit",
-                "candidateAnswer", "hi", // this variable needs to be present in the AgenticScope in advance because the MeetingProposer takes it as input
-                "memoryId", "user-1234"); // if we don't put a memoryId, the proposer agent will not remember what he proposed already
+        // 4. 执行循环模式的agent
+        Map<String, Object> input = Map.of("meetingTopic", "on-site visit",     // 会议主题
+                "candidateAnswer", "hi",                                            // 初始回答（需要预设）
+                "memoryId", "user-1234");                                           // 用户id，用于记忆管理
 
         var lastProposalAndAnswer = schedulingLoop.invoke(input);
 

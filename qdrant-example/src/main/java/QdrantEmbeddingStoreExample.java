@@ -2,6 +2,7 @@ import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.onnx.allminilml6v2.AllMiniLmL6V2EmbeddingModel;
 import dev.langchain4j.model.embedding.EmbeddingModel;
+import dev.langchain4j.data.document.Metadata;
 import dev.langchain4j.store.embedding.EmbeddingMatch;
 import dev.langchain4j.store.embedding.EmbeddingSearchRequest;
 import dev.langchain4j.store.embedding.EmbeddingStore;
@@ -12,6 +13,7 @@ import io.qdrant.client.grpc.Collections;
 import org.testcontainers.qdrant.QdrantContainer;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 import static dev.langchain4j.internal.Utils.randomUUID;
@@ -48,7 +50,13 @@ public class QdrantEmbeddingStoreExample {
 
       EmbeddingModel embeddingModel = new AllMiniLmL6V2EmbeddingModel();
 
-      TextSegment segment1 = TextSegment.from("I've been to France twice.");
+      TextSegment segment1 = TextSegment.from("I've been to France twice.",
+              Metadata.from(Map.of(
+                "source", "user_conversation",
+                "timestamp", "2024-01-15",
+                "language", "en"))
+      );
+
       Embedding embedding1 = embeddingModel.embed(segment1).content();
       embeddingStore.add(embedding1, segment1);
 

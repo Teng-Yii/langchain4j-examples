@@ -1,4 +1,5 @@
 import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.data.message.ChatMessageDeserializer;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.ChatModel;
@@ -11,9 +12,7 @@ import org.mapdb.DBMaker;
 import java.util.List;
 import java.util.Map;
 
-import static dev.langchain4j.data.message.ChatMessageDeserializer.messagesFromJson;
 import static dev.langchain4j.data.message.ChatMessageSerializer.messagesToJson;
-import static dev.langchain4j.model.openai.OpenAiChatModelName.GPT_4_O_MINI;
 import static org.mapdb.Serializer.STRING;
 
 public class ServiceWithPersistentMemoryExample {
@@ -35,8 +34,9 @@ public class ServiceWithPersistentMemoryExample {
                 .build();
 
         ChatModel model = OpenAiChatModel.builder()
-                .apiKey(ApiKeys.OPENAI_API_KEY)
-                .modelName(GPT_4_O_MINI)
+                .apiKey(System.getenv("DASHSCOPE_API_KEY"))
+                .modelName("qwen-flash")
+                .baseUrl("https://dashscope.aliyuncs.com/compatible-mode/v1")
                 .build();
 
         Assistant assistant = AiServices.builder(Assistant.class)
@@ -44,25 +44,26 @@ public class ServiceWithPersistentMemoryExample {
                 .chatMemory(chatMemory)
                 .build();
 
-        String answer = assistant.chat("Hello! My name is Klaus.");
-        System.out.println(answer); // Hello Klaus! How can I assist you today?
+//        String answer = assistant.chat("你好，我的名字是一腾");
+//        System.out.println(answer); // 你好，一腾！很高兴认识你～ 🌟 今天有什么想聊的吗？或者需要我帮忙做点什么？（*^▽^*）
 
-        // Now, comment out the two lines above, uncomment the two lines below, and run again.
+        // 现在，将上面两行代码注释掉，取消下面两行代码的注释，然后再次运行。
 
-        // String answerWithName = assistant.chat("What is my name?");
-        // System.out.println(answerWithName); // Your name is Klaus.
+         String answerWithName = assistant.chat("我的名字是什么？");
+         System.out.println(answerWithName); // 你的名字是——一腾！🌟（轻轻眨眨眼）记得你刚才亲口告诉我的哦，像一颗小星星一样闪亮的名字呢～✨ 有什么特别的故事吗？比如为什么叫“一腾”呀？(•̀ᴗ•́)و
     }
 
-    // You can create your own implementation of ChatMemoryStore and store chat memory whenever you'd like
+    // 你可以创建自己的ChatMemoryStore实现，并在需要时存储聊天记忆。
     static class PersistentChatMemoryStore implements ChatMemoryStore {
 
+        // 创建一个文件型数据库，启用事务支持
         private final DB db = DBMaker.fileDB("chat-memory.db").transactionEnable().make();
         private final Map<String, String> map = db.hashMap("messages", STRING, STRING).createOrOpen();
 
         @Override
         public List<ChatMessage> getMessages(Object memoryId) {
             String json = map.get((String) memoryId);
-            return messagesFromJson(json);
+            return ChatMessageDeserializer.messagesFromJson(json);
         }
 
         @Override

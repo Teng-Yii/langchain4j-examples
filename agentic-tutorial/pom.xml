@@ -16,12 +16,14 @@
 
     <dependencies>
 
+        <!-- 若要使用高级AI服务API，需要引入该依赖 -->
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j</artifactId>
             <version>1.7.1</version>
         </dependency>
 
+        <!-- LangChain4j-open-ai 基础 -->
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-open-ai</artifactId>

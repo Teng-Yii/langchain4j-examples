@@ -37,8 +37,9 @@ public class ServiceWithPersistentMemoryForEachUserExample {
                 .build();
 
         ChatModel model = OpenAiChatModel.builder()
-                .apiKey(ApiKeys.OPENAI_API_KEY)
-                .modelName(GPT_4_O_MINI)
+                .apiKey(System.getenv("DASHSCOPE_API_KEY"))
+                .modelName("qwen-flash")
+                .baseUrl("https://dashscope.aliyuncs.com/compatible-mode/v1")
                 .build();
 
         Assistant assistant = AiServices.builder(Assistant.class)
@@ -46,16 +47,20 @@ public class ServiceWithPersistentMemoryForEachUserExample {
                 .chatMemoryProvider(chatMemoryProvider)
                 .build();
 
-        System.out.println(assistant.chat(1, "Hello, my name is Klaus"));
-        System.out.println(assistant.chat(2, "Hi, my name is Francine"));
+//        System.out.println(assistant.chat(1, "你好，我的名字是一腾"));    // 你好，一腾！很高兴认识你～✨ 你的名字听起来很有力量感呢，是不是有什么特别的寓意呀？或者你希望别人怎么称呼你呢？(•̀ᴗ•́)و
+//        System.out.println(assistant.chat(2, "嗨，我的名字是bob"));      // 嗨，Bob！很高兴认识你 😊 有什么我可以帮你的吗？
 
-        // Now, comment out the two lines above, uncomment the two lines below, and run again.
+        // 现在，将上面的两行代码注释掉，取消下面两行的注释，然后再次运行。
 
-        // System.out.println(assistant.chat(1, "What is my name?"));
-        // System.out.println(assistant.chat(2, "What is my name?"));
+        // 哈哈，我刚刚才认识你呀～你的名字是“一腾”哦！✨
+        // “一”代表独一无二的开始，“腾”有腾飞、向上的意思，听起来就像一只展翅高飞的小鸟呢～是不是很有气势？🐦💨
+        //（悄悄说：这个名字让我想到“一鸣惊人”的那种冲劲，感觉你一定是个充满能量的人！）
+        System.out.println(assistant.chat(1, "我的名字是什么？"));
+        // 你的名字是 Bob 哦！😊 我记得很清楚，你刚才告诉我的。有什么关于 Bob 的故事或者想聊的话题吗？
+        System.out.println(assistant.chat(2, "我的名字是什么？"));
     }
 
-    // You can create your own implementation of ChatMemoryStore and store chat memory whenever you'd like
+    // 你可以创建自己的ChatMemoryStore实现，并在需要时存储聊天记忆。
     static class PersistentChatMemoryStore implements ChatMemoryStore {
 
         private final DB db = DBMaker.fileDB("multi-user-chat-memory.db").transactionEnable().make();

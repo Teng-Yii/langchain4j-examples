@@ -22,14 +22,21 @@ public class AssistantController {
         this.streamingAssistant = streamingAssistant;
     }
 
+    // http://localhost:8082/assistant?message=现在几点了
     @GetMapping("/assistant")
-    public String assistant(@RequestParam(value = "message", defaultValue = "What is the current time?") String message) {
+    public String assistant(@RequestParam(value = "message", defaultValue = "现在几点了？") String message) {
         return assistant.chat(message);
     }
 
+    /**
+     * 流式输出，指定响应的内容类型"text/event-stream"，SSE的标准MIME类型
+     * http://localhost:8082/streamingAssistant?message=现在几点了
+     * @param message
+     * @return
+     */
     @GetMapping(value = "/streamingAssistant", produces = TEXT_EVENT_STREAM_VALUE)
     public Flux<String> streamingAssistant(
-            @RequestParam(value = "message", defaultValue = "What is the current time?") String message) {
+            @RequestParam(value = "message", defaultValue = "现在几点了？") String message) {
         return streamingAssistant.chat(message);
     }
 }

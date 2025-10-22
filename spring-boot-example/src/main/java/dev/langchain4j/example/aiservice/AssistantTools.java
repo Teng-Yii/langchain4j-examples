@@ -10,7 +10,7 @@ import java.time.LocalTime;
 public class AssistantTools {
 
     /**
-     * This tool is available to {@link Assistant}
+     * 此工具可供 {@link Assistant} 使用
      */
     @Tool
     @Observed

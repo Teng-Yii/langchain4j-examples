@@ -10,6 +10,7 @@ import dev.langchain4j.memory.chat.TokenWindowChatMemory;
 import dev.langchain4j.model.TokenCountEstimator;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.embedding.onnx.allminilml6v2.AllMiniLmL6V2EmbeddingModel;
+import dev.langchain4j.model.openai.OpenAiEmbeddingModel;
 import dev.langchain4j.model.openai.OpenAiTokenCountEstimator;
 import dev.langchain4j.rag.content.retriever.ContentRetriever;
 import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever;
@@ -39,27 +40,30 @@ public class CustomerSupportAgentConfiguration {
 
     @Bean
     EmbeddingModel embeddingModel() {
-        // Not the best embedding model, but good enough for this demo
-        return new AllMiniLmL6V2EmbeddingModel();
+        return OpenAiEmbeddingModel.builder()
+                .apiKey(System.getenv("DASHSCOPE_API_KEY"))
+                .modelName("text-embedding-v4")
+                .baseUrl("https://dashscope.aliyuncs.com/compatible-mode/v1")
+                .build();
     }
 
     @Bean
     EmbeddingStore<TextSegment> embeddingStore(EmbeddingModel embeddingModel, ResourceLoader resourceLoader, TokenCountEstimator tokenizer) throws IOException {
 
-        // Normally, you would already have your embedding store filled with your data.
-        // However, for the purpose of this demonstration, we will:
+        // 通常情况下，您的嵌入存储库中应该已经填充了您的数据。
+        //  然而，在本演示中，我们将：
 
-        // 1. Create an in-memory embedding store
+        // 1. 创建内存嵌入存储库
         EmbeddingStore<TextSegment> embeddingStore = new InMemoryEmbeddingStore<>();
 
-        // 2. Load an example document ("Miles of Smiles" terms of use)
+        // 2. 加载示例文档("Miles of Smiles" terms of use)
         Resource resource = resourceLoader.getResource("classpath:miles-of-smiles-terms-of-use.txt");
         Document document = loadDocument(resource.getFile().toPath(), new TextDocumentParser());
 
-        // 3. Split the document into segments 100 tokens each
-        // 4. Convert segments into embeddings
-        // 5. Store embeddings into embedding store
-        // All this can be done manually, but we will use EmbeddingStoreIngestor to automate this:
+        // 3. 将文档分割为每个100个token的段落
+        // 4. 将分段转换为嵌入向量
+        // 5. S将嵌入存储到嵌入存储库中
+        // 所有这些操作都可以手动完成，但我们将使用EmbeddingStoreIngestor来实现自动化：
         DocumentSplitter documentSplitter = DocumentSplitters.recursive(100, 0, tokenizer);
         EmbeddingStoreIngestor ingestor = EmbeddingStoreIngestor.builder()
                 .documentSplitter(documentSplitter)
@@ -74,10 +78,9 @@ public class CustomerSupportAgentConfiguration {
     @Bean
     ContentRetriever contentRetriever(EmbeddingStore<TextSegment> embeddingStore, EmbeddingModel embeddingModel) {
 
-        // You will need to adjust these parameters to find the optimal setting,
-        // which will depend on multiple factors, for example:
-        // - The nature of your data
-        // - The embedding model you are using
+        // 您需要调整这些参数以找到最佳设置，这主要取决于两个因素：
+        // - 数据的性质
+        // - 您使用的嵌入式模型
         int maxResults = 1;
         double minScore = 0.6;
 

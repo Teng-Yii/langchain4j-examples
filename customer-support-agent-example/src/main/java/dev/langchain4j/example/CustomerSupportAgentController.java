@@ -14,6 +14,7 @@ public class CustomerSupportAgentController {
         this.customerSupportAgent = customerSupportAgent;
     }
 
+    // http://localhost:8080/customerSupportAgent?sessionId=123&userMessage=你好
     @GetMapping("/customerSupportAgent")
     public String customerSupportAgent(@RequestParam String sessionId, @RequestParam String userMessage) {
         Result<String> result = customerSupportAgent.answer(sessionId, userMessage);

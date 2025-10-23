@@ -18,15 +18,15 @@ public class ServiceWithStreamingExample {
 
     public static void main(String[] args) throws Exception {
 
-        // Sorry, "demo" API key does not support streaming (yet). Please use your own key.
         StreamingChatModel model = OpenAiStreamingChatModel.builder()
-                .apiKey(ApiKeys.OPENAI_API_KEY)
-                .modelName(GPT_4_O_MINI)
+                .apiKey(System.getenv("DASHSCOPE_API_KEY"))
+                .modelName("qwen-flash")
+                .baseUrl("https://dashscope.aliyuncs.com/compatible-mode/v1")
                 .build();
 
         Assistant assistant = AiServices.create(Assistant.class, model);
 
-        TokenStream tokenStream = assistant.chat("Tell me a joke");
+        TokenStream tokenStream = assistant.chat("给我讲一个笑话");
 
         CompletableFuture<ChatResponse> futureResponse = new CompletableFuture<>();
 

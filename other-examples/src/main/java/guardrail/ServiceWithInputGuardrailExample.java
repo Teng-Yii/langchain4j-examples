@@ -1,3 +1,5 @@
+package guardrail;
+
 import dev.langchain4j.data.message.Content;
 import dev.langchain4j.data.message.TextContent;
 import dev.langchain4j.data.message.UserMessage;
@@ -35,7 +37,7 @@ public class ServiceWithInputGuardrailExample {
         try {
             System.out.println(chat.chat("我会杀了你！！！"));
         } catch (GuardrailException e) {
-            // The guardrail ServiceWithInputGuardrailExample$MySecurityGuard failed with this message: 我会杀了你！！！输入不合法
+            // The guardrail guardrail.ServiceWithInputGuardrailExample$MySecurityGuard failed with this message: 我会杀了你！！！输入不合法
             System.out.println(e.getMessage());
         }
     }

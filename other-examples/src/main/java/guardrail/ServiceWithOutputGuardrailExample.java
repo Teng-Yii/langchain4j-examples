@@ -29,7 +29,7 @@ public class ServiceWithOutputGuardrailExample {
                 .build();
 
         try {
-            String result = chat.chat("给我讲一个笑话，要求字数在20字以内");
+            String result = chat.chat("给我讲一个笑话，要求字数在5字以内");
             System.out.println(result);
         } catch (GuardrailException e) {
             // The guardrail guardrail.ServiceWithOutputGuardrailExample$MySecurityGuard failed with this message: 输出文本不能大于20
@@ -50,7 +50,9 @@ public class ServiceWithOutputGuardrailExample {
             if (responseText.length() > 5) {
                 System.out.println("validate failure");
 
-                return failure("输出文本不能大于5");
+//                return failure("输出文本不能大于5");                                        // 这不会导致重试
+//                return retry("输出文本不能大于5");                                          // retry方法会重试chatMemory的对话，如果第一轮对话校验失败，会抛IllegalArgumentException: messages cannot be null or empty异常
+                return reprompt("输出文本不能大于5", "直接输出内容“你好”");   // reprompt允许重新输入userMessage作为prompt，根据新prompt重新对话，得到的响应判断是否通过检验
             }
             return success();
 

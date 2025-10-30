@@ -7,12 +7,12 @@ import domain.Cv;
 
 public interface CvGeneratorStructuredOutput {
     @UserMessage("""
-            Here is information on my life and professional trajectory
-            that you should turn into a clean and complete CV.
-            Do not invent facts and do not leave out skills or experiences.
-            This CV will later be cleaned up, for now, make sure it is complete.
-            My life story: {{lifeStory}}
+            以下是我的人生经历与职业轨迹信息，
+            请据此整理成一份简洁完整的简历。
+            请勿虚构事实，亦勿遗漏技能或经验。
+            此简历后续将进行精简，现阶段请确保内容完整。
+            我的个人经历：{{lifeStory}}
             """)
-    @Agent("Generates a clean CV based on user-provided information")
+    @Agent("根据用户提供的信息生成一份简洁的简历")
     Cv generateCv(@V("lifeStory") String userInfo);
 }

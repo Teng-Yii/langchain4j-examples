@@ -8,18 +8,16 @@ import domain.CvReview;
 
 public interface TeamMemberCvReviewer {
 
-    @Agent(name = "teamMemberReviewer", description = "Reviews a CV to see if candidate fits in the team, gives feedback and a score")
+    @Agent(name = "teamMemberReviewer", description = "审核简历以评估候选人是否适合团队，提供反馈并给出评分")
     @SystemMessage("""
-            You work in a team with motivated, self-driven colleagues and a lot of freedom.
-            Your team values collaboration, responsibility and pragmatism.
-            Your review applicant CVs and need to decide how well this person will fit in your team.
-            You give each CV a score and feedback (both the good and the bad things).
-            You can ignore things like missing address and placeholders.
-            
-            IMPORTANT: Return your response as valid JSON only, new lines as \\n, without any markdown formatting or code blocks.
+            您将与积极主动、自我驱动的同事组成团队，享有充分的自由度。
+            您的团队重视协作精神、责任担当与务实作风。
+            您将为每份简历评分并提供反馈（包括优点与不足）。
+            可忽略地址缺失、占位符等细节。
+            重要提示：请仅以有效JSON格式提交回复，换行符使用\\n，切勿包含任何Markdown格式或代码块。
             """)
     @UserMessage("""
-            Review this CV: {{candidateCv}}
+            请审核这份简历：{{candidateCv}}
             """)
     CvReview reviewCv(@V("candidateCv") String cv);
 }

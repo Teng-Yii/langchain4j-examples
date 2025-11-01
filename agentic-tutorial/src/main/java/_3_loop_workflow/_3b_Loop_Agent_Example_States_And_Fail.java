@@ -3,6 +3,7 @@ package _3_loop_workflow;
 import dev.langchain4j.agentic.AgenticServices;
 import dev.langchain4j.agentic.UntypedAgent;
 import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.openai.OpenAiChatModel;
 import domain.CvReview;
 import util.ChatModelProvider;
 import util.StringLoader;
@@ -17,43 +18,49 @@ import java.util.Map;
 public class _3b_Loop_Agent_Example_States_And_Fail {
 
     static {
-        CustomLogging.setLevel(LogLevels.PRETTY, 300);  // control how much you see from the model calls
+        CustomLogging.setLevel(LogLevels.PRETTY, 300);  // 控制模型调用中显示的内容量
     }
 
     /**
-     * Here we build the same loop-agent as in 3a, but this time we should see it fail
-     * by trying to tailor the CV to a job description that doesn't fit.
-     * We will also return the latest score and feedback, on top of the final CV,
-     * which will allow us to check if we obtained a good score and if it's worth handing in this CV.
-     * We also show a trick to inspect the intermediary states of the review (it gets overwritten in every loop)
-     * by storing them in a list each time the exit condition is checked (ie. after every agent invocation).
+     * 在此我们构建与3a相同的循环代理，但这次应会观察到其失败：
+     * 因尝试将简历强行匹配至不符的职位描述。
+     * 除最终简历外，我们还将返回最新评分与反馈，
+     * 从而可验证是否获得良好评分，以及该简历是否值得提交。
+     * 我们还展示了一个检查评审中间状态的技巧（这些状态会在每次循环中被覆盖）
+     * 方法是在每次检查退出条件时（即每次调用代理后）将状态存储到列表中。
      */
 
-    private static final ChatModel CHAT_MODEL = ChatModelProvider.createChatModel();
+    private static final ChatModel CHAT_MODEL = OpenAiChatModel.builder()
+            .apiKey(System.getenv("DASHSCOPE_API_KEY"))
+            .modelName("qwen-flash")
+            .baseUrl("https://dashscope.aliyuncs.com/compatible-mode/v1")
+//            .logRequests(true)
+//            .logResponses(true)
+            .build();
 
     public static void main(String[] args) throws IOException {
 
-        // 1. Create all sub-agents (same as before)
+        // 1. 创建所有子代理（与之前相同）
         CvReviewer cvReviewer = AgenticServices.agentBuilder(CvReviewer.class)
                 .chatModel(CHAT_MODEL)
-                .outputName("cvReview") // this gets updated in every iteration with new feedback for the next tailoring
+                .outputName("cvReview") // 每次迭代都会根据新反馈进行更新，为下一次调整提供依据。
                 .build();
         ScoredCvTailor scoredCvTailor = AgenticServices.agentBuilder(ScoredCvTailor.class)
                 .chatModel(CHAT_MODEL)
-                .outputName("cv") // this will be updated in every iteration, continuously improving the CV
+                .outputName("cv") // 这将在每次迭代中更新，持续改进简历。
                 .build();
 
-        // 2. Build the sequence and store the reviews on each exit condition check
-        // It can be important to know whether the exit condition was met or just the max iterations
-        // (eg. John may not even want to bother applying for this job).
-        // You can change the output variable to also contain the last score and feedback, and check yourself after the loop finished.
-        // You can also store the intermediary values in a mutable list to inspect later.
-        // The code below does both things at the same time.
+        // 2. 构建序列并在每次退出条件检查时保存评估结果
+        // 了解退出条件是否满足，还是仅达到最大迭代次数，这一点可能很重要。
+        // (例如，约翰可能根本不想费心申请这份工作。).
+        // 你可以修改输出变量，使其同时包含最后的得分和反馈，并在循环结束后自行检查结果。
+        // 您也可以将中间值存储在可变列表中以便后续检查。
+        // 下面的代码同时实现了这两件事。
         List<CvReview> reviewHistory = new ArrayList<>();
 
-        UntypedAgent reviewedCvGenerator = AgenticServices // use UntypedAgent unless you define the resulting composed agent, see below
-                .loopBuilder().subAgents(cvReviewer, scoredCvTailor) // this can be as many as you want, order matters
-                .outputName("cvAndReview") // this is the final output we want to observe
+        UntypedAgent reviewedCvGenerator = AgenticServices // 除非你定义生成的组合代理，否则请使用无类型代理，详见下文。
+                .loopBuilder().subAgents(cvReviewer, scoredCvTailor) // 数量不限，顺序重要
+                .outputName("cvAndReview") // 这是我们想要观察的最终输出结果
                 .output(agenticScope -> {
                     Map<String, Object> cvAndReview = Map.of(
                             "cv", agenticScope.readState("cv"),
@@ -63,45 +70,40 @@ public class _3b_Loop_Agent_Example_States_And_Fail {
                 })
                 .exitCondition(scope -> {
                     CvReview review = (CvReview) scope.readState("cvReview");
-                    reviewHistory.add(review); // capture the score+feedback at every agent invocation
-                    System.out.println("Exit check with score=" + review.score);
+                    reviewHistory.add(review); // 在每次代理调用时捕获 score+feedback
+                    System.out.println("Exit check with score=" + review.score);    // 会输出6次，因为退出条件是在每次代理调用后进行检查，而不仅仅是在整个循环结束后检查。
                     return review.score >= 0.8;
                 })
-                .maxIterations(3) // safety to avoid infinite loops, in case exit condition is never met
+                .maxIterations(3) // 为避免退出条件永远无法满足导致的无限循环，确保安全
                 .build();
 
-        // 3. Load the original arguments from text files in resources/documents/
+        // 3.  从 resources/documents/ 文本文件中加载原始参数
         // - master_cv.txt
         // - job_description_backend.txt
         String masterCv = StringLoader.loadFromResource("/documents/master_cv.txt");
         String fluteJobDescription = "We are looking for a passionate flute teacher to join our music academy.";
 
-        // 4. Because we use an untyped agent, we need to pass a map of arguments
+        // 4. 由于我们使用的是无类型代理，因此需要传递一个参数映射表。
         Map<String, Object> arguments = Map.of(
-                "cv", masterCv, // start with the master CV, it will be continuously improved
+                "cv", masterCv, // 从主简历开始，它将持续改进
                 "jobDescription", fluteJobDescription
         );
 
-        // 5. Call the composed agent to generate the tailored CV
+        // 5. 调用组合式代理生成定制简历
         Map<String, Object> cvAndReview = (Map<String, Object>) reviewedCvGenerator.invoke(arguments);
 
-        // You can observe the steps in the logs, for example:
-        // Round 1 output: "content": "{\n  \"score\": 0.0,\n  \"feedback\": \"This CV is not suitable for the flute teacher position at our music academy...
-        // Round 2 output: "content": "{\n  \"score\": 0.3,\n  \"feedback\": \"John's CV demonstrates strong soft skills such as communication, patience, and adaptability, which are important in a teaching role. However, the absence of formal music training or ...
-        // Round 3 output: "content": "{\n  \"score\": 0.4,\n  \"feedback\": \"John Doe demonstrates strong soft skills and mentoring experience,...
-
         System.out.println("=== REVIEWED CV FOR FLUTE TEACHER ===");
-        System.out.println(cvAndReview.get("cv")); // the final CV after the loop
+        System.out.println(cvAndReview.get("cv")); // 循环后的最终简历
 
-        // now you get the finalReview in the output map so you can check
-        // if the final score and feedback meet your requirements
+        // 现在你可以在输出映射中获取最终审核结果，以便进行检查。
+        // 如果最终评分和反馈符合您的要求
         CvReview review = (CvReview) cvAndReview.get("finalReview");
-        System.out.println("=== FINAL REVIEW FOR FLUTE TEACHER ===");
-        System.out.println("CV" + (review.score >= 0.8 ? " passes" : " does not pass") + " with score=" + review.score);
-        System.out.println("Final feedback: " + review.feedback);
+        System.out.println("=== FLUTE TEACHER 的最终反馈 ===");
+        System.out.println("CV" + (review.score >= 0.8 ? " 通过" : " 不通过") + " 得分=" + review.score);
+        System.out.println("最终反馈: " + review.feedback);
 
-        // in reviewHistory you find the full history of reviews
-        System.out.println("=== FULL REVIEW HISTORY FOR FLUTE TEACHER ===");
+        // 在评论历史记录中，您可查阅所有评论的完整历史记录。
+        System.out.println("=== FLUTE TEACHER 完整的评估历史 ===");
         System.out.println(reviewHistory);
 
     }

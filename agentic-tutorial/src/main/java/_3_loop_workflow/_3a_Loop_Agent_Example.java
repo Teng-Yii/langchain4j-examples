@@ -3,6 +3,7 @@ package _3_loop_workflow;
 import dev.langchain4j.agentic.AgenticServices;
 import dev.langchain4j.agentic.UntypedAgent;
 import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.openai.OpenAiChatModel;
 import domain.CvReview;
 import util.ChatModelProvider;
 import util.StringLoader;
@@ -15,72 +16,77 @@ import java.util.Map;
 public class _3a_Loop_Agent_Example {
 
     static {
-        CustomLogging.setLevel(LogLevels.PRETTY, 300);  // control how much you see from the model calls
+        CustomLogging.setLevel(LogLevels.PRETTY, 300);  // 控制模型调用中显示的内容量
     }
 
     /**
-     * This example demonstrates how to implement a CvReviewer agent that we can add to a loop
-     * with our CvTailor agent. We will implement two agents:
-     * - ScoredCvTailor (takes in a CV and tailors it to a CvReview (feedback/instruction + score))
-     * - CvReviewer (takes in the tailored CV and job description, and returns a CvReview object (feedback + score)
-     * Additionally, the loop ends when the score is above a certain threshold (e.g. 0.7) (exit condition)
+     * 此示例演示如何实现一个CvReviewer代理，该代理可添加至循环中，与我们的CvTailor代理协同工作。我们将实现两个代理：
+     * - ScoredCvTailor（接收简历并将其定制为CvReview格式（反馈/指导+评分））
+     * - CvReviewer（接收定制后的简历和职位描述，返回CvReview对象（反馈+评分））
+     * 此外，当评分超过特定阈值（例如0.7）时循环终止（退出条件）
      */
 
-    // 1. Define the model that will power the agents
-    private static final ChatModel CHAT_MODEL = ChatModelProvider.createChatModel();
+    // 1. 定义将驱动智能体的模型
+    private static final ChatModel CHAT_MODEL = OpenAiChatModel.builder()
+            .apiKey(System.getenv("DASHSCOPE_API_KEY"))
+            .modelName("qwen-flash")
+            .baseUrl("https://dashscope.aliyuncs.com/compatible-mode/v1")
+            .logRequests(true)
+            .logResponses(true)
+            .build();
 
     public static void main(String[] args) throws IOException {
 
-        // 2. Define the two sub-agents in this package:
+        // 2. 在此包中定义两个子代理：
         //      - CvReviewer.java
         //      - CvTailor.java
 
-        // 3. Create all agents using AgenticServices
+        // 3. 使用代理服务创建所有代理
         CvReviewer cvReviewer = AgenticServices.agentBuilder(CvReviewer.class)
                 .chatModel(CHAT_MODEL)
-                .outputName("cvReview") // this gets updated in every iteration with new feedback for the next tailoring
+                .outputName("cvReview") // 每次迭代都会根据新反馈进行更新，为后续调整提供依据。
                 .build();
         ScoredCvTailor scoredCvTailor = AgenticServices.agentBuilder(ScoredCvTailor.class)
                 .chatModel(CHAT_MODEL)
-                .outputName("cv") // this will be updated in every iteration, continuously improving the CV
+                .outputName("cv") // 这将在每次迭代中更新，持续改进简历。
                 .build();
 
-        // 4. Build the sequence
-        UntypedAgent reviewedCvGenerator = AgenticServices // use UntypedAgent unless you define the resulting composed agent, see _2_Sequential_Agent_Example
-                .loopBuilder().subAgents(cvReviewer, scoredCvTailor) // this can be as many as you want, order matters
-                .outputName("cv") // this is the final output we want to observe (the improved CV)
+        // 4. 构建序列
+        UntypedAgent reviewedCvGenerator = AgenticServices // 除非你定义最终组合的代理，否则请使用无类型代理，详见_2_顺序代理示例
+                .loopBuilder().subAgents(cvReviewer, scoredCvTailor) // 数量不限，顺序重要
+                .outputName("cv") // 这是我们想要观察的最终输出（改进后的交叉验证结果）
                 .exitCondition(agenticScope -> {
-                            CvReview review = (CvReview) agenticScope.readState("cvReview");
-                            System.out.println("Checking exit condition with score=" + review.score); // we log intermediary scores
-                            return review.score > 0.8;
-                        }) // exit condition based on the score given by the CvReviewer agent, when > 0.8 we are satisfied
-                // note that the exit condition is checked after each agent invocation, not just after the entire loop
-                .maxIterations(3) // safety to avoid infinite loops, in case exit condition is never met
+                    CvReview review = (CvReview) agenticScope.readState("cvReview");
+                    System.out.println("检查退出条件与得分=" + review.score); // 我们记录中间分数
+                    return review.score > 0.8;
+                }) // 根据CvReviewer代理给出的评分确定退出条件，当评分>0.8时视为满意
+                // 请注意，退出条件是在每次代理调用后进行检查，而不仅仅是在整个循环结束后检查。
+                .maxIterations(3) // 为避免退出条件永远无法满足导致的无限循环，确保安全
                 .build();
 
-        // 5. Load the original arguments from text files in resources/documents/
+        // 5. 从 resources/documents/ 文本文件中加载原始参数
         // - master_cv.txt
         // - job_description_backend.txt
         String masterCv = StringLoader.loadFromResource("/documents/master_cv.txt");
         String jobDescription = StringLoader.loadFromResource("/documents/job_description_backend.txt");
 
-        // 5. Because we use an untyped agent, we need to pass a map of arguments
+        // 5. 由于我们使用的是无类型代理，因此需要传递一个参数映射表。
         Map<String, Object> arguments = Map.of(
-                "cv", masterCv, // start with the master CV, it will be continuously improved
+                "cv", masterCv, // 从主简历开始，它将持续改进
                 "jobDescription", jobDescription
         );
 
-        // 5. Call the composed agent to generate the tailored CV
+        // 5. 调用组合式代理生成定制简历
         String tailoredCv = (String) reviewedCvGenerator.invoke(arguments);
 
-        // 6. and print the generated CV
-        System.out.println("=== REVIEWED CV UNTYPED ===");
+        // 6. 并打印生成的简历
+        System.out.println("=== 已审核简历（UNTYPED） ===");
         System.out.println((String) tailoredCv);
 
-        // this CV probably passes after the first tailoring + review round
-        // if you want to see it fail, try with the flute teacher jobDescription
-        // as in example 3b, where we also inspect intermediary states of the CV
-        // and retrieve the final review and score as well.
+        // 这份简历经过初步定制和审核后应该能通过。
+        // 若想目睹其失败，不妨试试用/documents/job_description_fullstack.txt
+        // 如例3b所示，其中我们还检查了CV的中间状态。
+        // 并检索最终评审结果及评分。
 
     }
 }

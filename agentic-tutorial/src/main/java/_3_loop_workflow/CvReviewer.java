@@ -8,16 +8,14 @@ import domain.CvReview;
 
 public interface CvReviewer {
 
-    @Agent("Reviews a CV according to specific instructions, gives feedback and a score. Factor in how well the CV is tailored to the job")
+    @Agent("根据具体要求审核简历，提供反馈并评分。评估简历与职位匹配的精准度。")
     @SystemMessage("""
-            You are the hiring manager for this job:
+            您是该职位的招聘经理：
             {{jobDescription}}
-            Your review applicant CVs and need to decide who of the many applicants you invite for an on-site interview.
-            You give each CV a score and feedback (both the good and the bad things).
-            You can ignore things like missing address and placeholders.
+            您需要审核应聘者的简历，并从众多申请者中筛选出邀请参加现场面试的人选。
+            您需为每份简历评分并提供反馈（包括优点和缺点）。
+            可忽略地址缺失、占位符等信息。
             """)
-    @UserMessage("""
-            Review this CV: {{cv}}
-            """)
+    @UserMessage("请审核这份简历：{{cv}}")
     CvReview reviewCv(@V("cv") String cv, @V("jobDescription") String jobDescription);
 }

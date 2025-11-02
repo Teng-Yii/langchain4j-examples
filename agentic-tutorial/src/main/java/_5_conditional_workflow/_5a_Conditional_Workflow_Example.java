@@ -15,91 +15,87 @@ import java.util.Map;
 public class _5a_Conditional_Workflow_Example {
 
     static {
-        CustomLogging.setLevel(LogLevels.PRETTY, 200);  // control how much you see from the model calls
+        CustomLogging.setLevel(LogLevels.PRETTY, 200);  //  控制模型调用中显示的内容量
     }
 
     /**
-     * This example demonstrates the conditional agent workflow.
-     * Based on a score and a candidate profile, we will either
-     * - invoke an agent that prepares everything for an on-site interview with the candidate
-     * - invoke an agent that sends a kind email that we will not move forward*
+     * 此示例演示了条件式代理工作流。
+     * 根据评分和候选人档案，我们将执行以下操作之一：
+     * - 调用代理程序，为与候选人的现场面试做好全部准备
+     * - 调用代理程序，发送一封礼貌的邮件告知候选人我们不会继续推进*
      */
 
     private static final ChatModel CHAT_MODEL = ChatModelProvider.createChatModel();
 
     public static void main(String[] args) throws IOException {
 
-        // 2. Define the two sub-agents in this package:
+        // 2. 定义两个子代理：
         //      - EmailAssistant.java
         //      - InterviewOrganizer.java
 
-        // 3. Create all agents using AgenticServices
+        // 3. 使用代理服务创建所有代理
         EmailAssistant emailAssistant = AgenticServices.agentBuilder(EmailAssistant.class)
                 .chatModel(CHAT_MODEL)
-                .tools(new OrganizingTools()) // the agent can use all tools defined there
+                .tools(new OrganizingTools()) // 代理可以使用那里定义的所有工具
                 .build();
         InterviewOrganizer interviewOrganizer = AgenticServices.agentBuilder(InterviewOrganizer.class)
                 .chatModel(CHAT_MODEL)
                 .tools(new OrganizingTools())
-                .contentRetriever(RagProvider.loadHouseRulesRetriever()) // this is how we can add RAG to an agent
+                .contentRetriever(RagProvider.loadHouseRulesRetriever()) // 这就是我们如何将RAG添加到智能体的方法
                 .build();
 
-        // 4. Build the conditional workflow
-        UntypedAgent candidateResponder = AgenticServices // use UntypedAgent unless you define the resulting composed agent, see _2_Sequential_Agent_Example
+        // 4. 构建条件工作流
+        UntypedAgent candidateResponder = AgenticServices // 除非你定义生成的组合代理，否则请使用无类型代理，详见_2_顺序代理示例_2_Sequential_Agent_Example
                 .conditionalBuilder()
                 .subAgents(agenticScope -> ((CvReview) agenticScope.readState("cvReview")).score >= 0.8, interviewOrganizer)
                 .subAgents(agenticScope -> ((CvReview) agenticScope.readState("cvReview")).score < 0.8, emailAssistant)
                 .build();
-        // Good to know: when multiple conditions are defined, they are all executed in sequence.
-        // If you want parallel execution here, use async agents, as demonstrated in _5b_Conditional_Workflow_Example_Async
+        // 需知：当定义多个条件时，它们将按顺序依次执行。
+        // 若需在此处实现并行执行，请使用异步代理，具体示例参见_5b_Conditional_Workflow_Example_Async
 
-        // 5. Load the arguments from text files in resources/documents/
+        // 5.从resources/documents/下的text files文件中加载参数
         String candidateCv = StringLoader.loadFromResource("/documents/tailored_cv.txt");
         String candidateContact = StringLoader.loadFromResource("/documents/candidate_contact.txt");
         String jobDescription = StringLoader.loadFromResource("/documents/job_description_backend.txt");
-        CvReview cvReviewFail = new CvReview(0.6, "The CV is good but lacks some technical details relevant for the backend position.");
-        CvReview cvReviewPass = new CvReview(0.9, "The CV is excellent and matches all requirements for the backend position.");
+        CvReview cvReviewFail = new CvReview(0.6, "简历内容不错，但缺少与后端职位相关的技术细节。");
+        CvReview cvReviewPass = new CvReview(0.9, "该简历非常出色，完全符合后端职位的所有要求。");
 
-        // 5. Because we use an untyped agent, we need to pass a map of all input arguments
+        // 5. 由于我们使用的是无类型代理，因此需要传递所有输入参数的映射表。
         Map<String, Object> arguments = Map.of(
                 "candidateCv", candidateCv,
                 "candidateContact", candidateContact,
                 "jobDescription", jobDescription,
-                "cvReview", cvReviewPass // change to cvReviewFail to see the other branch
+                "cvReview", cvReviewFail // 切换到 cvReviewFail 分支查看其他分支
         );
 
-        // 5. Call the conditional agent to respond to the candidate in line with the review
+        // 5. 联系条件代理，根据审核结果回复候选人。
         candidateResponder.invoke(arguments);
-        // in this example, we didn't make meaningful changes to the AgenticScope
-        // and we don't have a meaningful output to print, since the tools executed the final action.
-        // we print to the console which actions were taken by the tools (emails sent, application status updated)
+        // 在此示例中，我们未对代理作用域（AgenticScope）进行实质性修改，且由于工具已执行最终操作，因此没有有意义的输出可打印。
+        // 我们向控制台打印工具执行的操作（发送邮件、更新申请状态）
 
-        // when you observe the logs in debug mode, the tool call result 'success' is still sent to the model
-        // and the model still answers something like "The email has been sent to John Doe informing him ..."
+        // 在调试模式下观察日志时，工具调用结果'success'仍会发送至模型
+        // 模型仍会返回类似"邮件已发送至John Doe告知其..."的响应
 
-        // For info: if tools are your last actions and you don't want to call the model back afterwards,
-        // you will typically add @Tool(returnBehavior = ReturnBehavior.IMMEDIATE)`
+        // 备注：若工具是最终操作且无需后续调用模型，
+        // 通常需添加`@Tool(returnBehavior = ReturnBehavior.IMMEDIATE)`属性
         // https://docs.langchain4j.dev/tutorials/tools#returning-immediately-the-result-of-a-tool-execution-request
-        // !!! BUT in agentic workflows IMMEDIATE RETURN BEHAVIOR for tools is NOT RECOMMENDED,
-        // since immediate return behavior will store the tool result in the AgenticScope and things can go wrong
-
-        // For info: this was an example of routing behavior with a code check on the conditions.
-        // Routing behavior can also be obtained by letting an LLM determine the best tool(s)/agent(s)
-        // to continue with, either by using
-        // - Supervisor agent: will operate on agents, see _7_supervisor_orchestration
-        // - AiServices as tools, like this
+        // !!! 但在代理工作流中，工具采用立即返回行为并不推荐，
+        // 因为立即返回会将工具结果存储在代理作用域中，可能引发异常
+        // 也可通过大型语言模型确定最佳工具/代理继续执行来实现路由行为，具体方式包括：
+        // - 使用监督代理：操作代理组件，详见_7_supervisor_orchestration
+        // - 将AiServices作为工具使用，例如：
         // RouterService routerService = AiServices.builder(RouterAgent.class)
         //        .chatModel(model)
         //        .tools(medicalExpert, legalExpert, technicalExpert)
         //        .build();
         //
-        // The best option depends on your use case:
+        // 最佳方案取决于具体场景：
         //
-        // - With conditional agents, you hardcode call criteria
-        // - Vs. with AiServices or Supervisor, the LLM decide which expert(s) to call
+        // - 使用条件代理时，需硬编码调用条件
+        // - 而通过AiServices或Supervisor，由LLM决定调用哪些专家
         //
-        // - With agentic solutions (conditional, supervisor) all intermediary states and the call chain are stored in AgenticScope
-        // - Vs. with AiServices it is much harder to track the call chain or intermediary states
+        // - 采用代理方案（条件代理/Supervisor）时，所有中间状态和调用链存储于AgenticScope
+        // - 相比之下，使用AiServices时难以追踪调用链或中间状态
 
     }
 }

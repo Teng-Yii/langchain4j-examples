@@ -9,10 +9,11 @@ public class ChatModelProvider {
     
     public static ChatModel createChatModel() {
         return OpenAiChatModel.builder()
-                .apiKey(System.getenv("OPENAI_API_KEY"))
-                .modelName(GPT_4_O_MINI)
-                .logRequests(true)
-                .logResponses(true)
+                .apiKey(System.getenv("DASHSCOPE_API_KEY"))
+                .modelName("qwen-flash")
+                .baseUrl("https://dashscope.aliyuncs.com/compatible-mode/v1")
+//                .logRequests(true)
+//                .logResponses(true)
                 .build();
     }
     

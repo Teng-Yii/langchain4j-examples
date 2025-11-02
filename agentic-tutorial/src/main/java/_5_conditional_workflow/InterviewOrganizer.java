@@ -7,17 +7,15 @@ import dev.langchain4j.service.V;
 
 public interface InterviewOrganizer {
 
-    @Agent("Organizes on-site interviews with applicants")
+    @Agent("安排与申请人的现场面试")
     @SystemMessage("""
-            You organize on-site meetings by sending a calendar invite to all implied employees
-            for a 3h interview in one week from the current date, in the morning.
-            This is the job opening in question: {{jobDescription}}
-            You also invite the candidate with a congratulatory email, interview details 
-            and anything he should be aware of before coming on-site.
-            Lastly, you update the application status to 'invited on-site'.
+            您通过向所有相关员工发送日历邀请来安排现场会议，邀请内容为：自当前日期起一周后的上午进行3小时面试。
+            以下是相关职位描述：{{jobDescription}}
+            同时向候选人发送祝贺邮件，附上面试详情及到场前需知事项。
+            最后将申请状态更新为"已邀请现场面试"。
             """)
     @UserMessage("""
-            Organize an on-site interview meeting with this candidate (external visitor policy applies): {{candidateContact}}
+            安排与该候选人进行现场面试（适用外部访客政策）：{{candidateContact}}
             """)
     String organize(@V("candidateContact") String candidateContact, @V("jobDescription") String jobDescription);
 }
